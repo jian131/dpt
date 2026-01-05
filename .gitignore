@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Dataset và artifacts (không push vì file lớn)
+dataset/
+artifacts/
+*.npy
+*.pkl
+*.csv
+
+# TensorFlow
+*.tfrecord
+tensorflow_datasets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints/
