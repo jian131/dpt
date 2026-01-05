@@ -1,181 +1,149 @@
 # Content-Based Image Retrieval (CBIR) + LSH Indexing
 
-## Bài toán
+Hệ thống tìm kiếm ảnh tương tự (query-by-image) với LSH indexing.
 
-Hệ thống tìm kiếm ảnh tương tự (query-by-image): người dùng đưa 1 ảnh làm query, hệ thống trả về Top-K ảnh giống nhất từ database.
+## 📌 Tính năng
 
-## Giải pháp
+- ✅ **HSV Color Histogram** (grid 3x3) - TỰ CODE
+- ✅ **LBP Texture** (3x3) - TỰ CODE
+- ✅ **LSH Indexing** (random hyperplanes) - TỰ CODE
+- ✅ **Distance metrics**: L1, L2, Chi-square - TỰ CODE
+- ✅ **Evaluation**: Precision@K, Recall@K
+- ✅ **Speedup**: 19-22x nhanh hơn Linear search
 
-### Features (Tự code)
+## 🚀 Hướng dẫn cho thành viên nhóm
 
-- **HSV Color Histogram**: Tính histogram màu trên không gian HSV với grid 3x3 (spatial color)
-  - Bins: H=16, S=4, V=4 → 256 bins/cell
-  - Grid 3x3 → 2304-dim vector
-- **LBP Texture**: Local Binary Pattern 3x3 cơ bản
-  - 8 neighbors → 256 bins
-- **Kết hợp**: Color (weight=0.6) + LBP (weight=0.4) → L2 normalize
-
-### Distance Metrics (Tự code)
-
-- L1 (Manhattan)
-- L2 (Euclidean)
-- Chi-square: `0.5 * sum((a-b)^2 / (a+b+eps))`
-
-### Indexing (Tự code)
-
-- **LSH (Locality Sensitive Hashing)**: Random hyperplanes
-  - 8 tables, 12 planes/table
-  - Giảm thời gian tìm kiếm từ O(N) → O(N/num_tables)
-
-### Dataset
-
-- Dùng **TensorFlow Datasets (TFDS)** để tải dataset
-- Mặc định: Caltech101, 30 classes, 80 ảnh/class
-- Export ra `dataset/<class_name>/<id>.jpg`
-
-## Kết quả
-
-Ví dụ trên Caltech101 (30 classes, ~2400 ảnh):
-
-| Metric           | Linear Search | LSH Search | Speedup  |
-| ---------------- | ------------- | ---------- | -------- |
-| **Precision@10** | 0.85          | 0.82       | -        |
-| **Recall@10**    | 0.42          | 0.40       | -        |
-| **Query time**   | 45 ms         | 8 ms       | **5.6x** |
-
-**Kết luận**: LSH giảm thời gian tìm kiếm ~5-6 lần với độ chính xác chỉ giảm ~3%.
-
-## Cài đặt
+### 1. Clone repo từ GitHub
 
 ```bash
-# Clone hoặc tải project
-cd CBIR
+git clone https://github.com/jian131/dpt.git
+cd dpt
+```
 
-# Cài dependencies
+### 2. Tạo virtual environment
+
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# Linux/Mac
+source .venv/bin/activate
+```
+
+### 3. Cài packages
+
+```bash
 pip install -r requirements.txt
 ```
 
-## Cách chạy
+### 4. Tải dataset + artifacts
 
-### 1. Download và export dataset
+**Lưu ý:** Dataset (~8MB) và artifacts (~4MB) KHÔNG có trên GitHub.
+
+**👉 Nhận từ leader nhóm** qua:
+
+- Google Drive / OneDrive / WeTransfer
+- Giải nén vào thư mục gốc project
+
+Cấu trúc sau khi giải nén:
+
+```
+dpt/
+├── dataset/          ← Folder này
+│   ├── red/*.jpg
+│   ├── blue/*.jpg
+│   └── ...
+├── artifacts/        ← Folder này
+│   ├── features.npy
+│   ├── meta.csv
+│   └── lsh_index.pkl
+└── ...
+```
+
+### 5. Test chạy
 
 ```bash
-python data/download_tfds.py --dataset caltech101 --out dataset --split train --limit_per_class 80 --max_classes 30 --image_size 256
+# Search ảnh
+python search.py --query "dataset/red/0.jpg" --mode lsh --topk 10
+
+# Evaluation
+python eval.py --k 10 --num_queries 30 --mode both
 ```
 
-**Tham số**:
+## 📁 Cấu trúc code
 
-- `--dataset`: tên dataset trên TFDS (mặc định: caltech101)
-- `--out`: thư mục output (mặc định: dataset)
-- `--split`: train/test (mặc định: train)
-- `--limit_per_class`: số ảnh/class (mặc định: 80)
-- `--max_classes`: số class (mặc định: 30)
-- `--image_size`: resize ảnh (mặc định: 256)
+```
+dpt/
+├── config.py        (41 dòng) - Cấu hình
+├── features.py      (76 dòng) - HSV + LBP (TỰ CODE)
+├── lsh.py           (73 dòng) - LSH indexing (TỰ CODE)
+├── build.py         (76 dòng) - Build features + index
+├── search.py       (106 dòng) - Search + distance (TỰ CODE)
+├── eval.py         (110 dòng) - Evaluation
+├── requirements.txt
+└── README.md
+```
 
-### 2. Build offline (extract features + build index)
+**Tổng: 482 dòng code**
+
+## 🎯 Kết quả
+
+| Metric           | Linear  | LSH        |
+| ---------------- | ------- | ---------- |
+| **Precision@10** | 100%    | 100%       |
+| **Recall@10**    | 34.48%  | 34.48%     |
+| **Query time**   | 6.81 ms | 0.36 ms    |
+| **Speedup**      | 1x      | **19x** ⚡ |
+
+## 💡 Nếu muốn build lại từ đầu
+
+Nếu có dataset mới (ảnh trong `dataset/<class>/*.jpg`):
 
 ```bash
-python offline_build.py --download
+python build.py --dataset dataset
 ```
 
-**Tham số**:
+Sẽ tạo:
 
-- `--download`: tự động tải dataset nếu chưa có
-- `--skip_features`: bỏ qua trích feature (dùng features đã có)
-- `--rebuild_index`: build lại LSH index
+- `artifacts/features.npy` - Feature vectors (N × 2560)
+- `artifacts/meta.csv` - Metadata
+- `artifacts/lsh_index.pkl` - LSH index
 
-**Output**:
+## 📦 Chia sẻ dataset/artifacts với nhóm
 
-- `artifacts/features.npy`: feature vectors (N x D)
-- `artifacts/meta.csv`: metadata (id, path, label, class_name)
-- `artifacts/lsh_index.pkl`: LSH index
+**Leader nhóm làm:**
 
-### 3. Search demo
+1. Nén dataset + artifacts:
 
 ```bash
-python search.py --query "dataset/accordion/0.jpg" --mode lsh --topk 10 --metric chi2
+# Windows PowerShell
+Compress-Archive -Path dataset,artifacts -DestinationPath cbir-data.zip
+
+# Linux/Mac
+zip -r cbir-data.zip dataset artifacts
 ```
 
-**Tham số**:
+2. Upload lên Google Drive / OneDrive
 
-- `--query`: đường dẫn ảnh query
-- `--mode`: linear hoặc lsh (mặc định: lsh)
-- `--topk`: số kết quả (mặc định: 10)
-- `--metric`: l1, l2, hoặc chi2 (mặc định: chi2)
-- `--no_show`: không hiển thị ảnh kết quả
+3. Chia sẻ link cho thành viên
 
-**Output**: In Top-K ảnh + distance, hiển thị grid ảnh (query + results).
+**Thành viên nhận:**
 
-### 4. Evaluation
+- Download `cbir-data.zip`
+- Giải nén vào folder project
+- Chạy `python search.py --query ...`
 
-```bash
-python eval.py --k 10 --num_queries 50 --mode both
-```
-
-**Tham số**:
-
-- `--k`: K cho Precision@K (mặc định: 10)
-- `--num_queries`: số ảnh query để test (mặc định: 50)
-- `--mode`: linear, lsh, hoặc both (mặc định: both)
-- `--metric`: l1, l2, hoặc chi2 (mặc định: chi2)
-- `--seed`: random seed (mặc định: 42)
-
-**Output**: Precision@K, Recall@K, thời gian truy vấn trung bình, speedup (nếu mode=both).
-
-## Cấu trúc thư mục
-
-```
-CBIR/
-├── config.py              # Cấu hình mặc định
-├── requirements.txt       # Dependencies
-├── README.md              # File này
-│
-├── data/
-│   └── download_tfds.py   # Download dataset từ TFDS
-│
-├── features/
-│   ├── __init__.py
-│   ├── color_hist.py      # HSV histogram (tự code)
-│   ├── lbp.py             # LBP texture (tự code)
-│   └── combine.py         # Kết hợp features
-│
-├── indexing/
-│   ├── __init__.py
-│   └── lsh.py             # LSH index (tự code)
-│
-├── dataset.py             # Load dataset paths/labels
-├── similarity.py          # Distance metrics (tự code)
-├── utils.py               # Utilities (timer, etc.)
-│
-├── offline_build.py       # Build offline: features + index
-├── search.py              # Search demo
-├── eval.py                # Evaluation
-│
-├── dataset/               # Dataset folder (tự động tạo)
-│   └── <class_name>/
-│       └── *.jpg
-│
-└── artifacts/             # Artifacts (tự động tạo)
-    ├── features.npy
-    ├── meta.csv
-    └── lsh_index.pkl
-```
-
-## Yêu cầu hệ thống
+## 🛠️ Requirements
 
 - Python 3.8+
-- Windows/Linux/Mac
-- RAM: ~4GB (cho 2400 ảnh)
-- Disk: ~500MB (dataset + features)
+- OpenCV, NumPy, Pandas, Matplotlib, tqdm
 
-## Tính năng nổi bật
+## 👥 Nhóm
 
-✅ **Tự code hoàn toàn**: HSV histogram, LBP, distance metrics, LSH indexing
-✅ **Dễ hiểu**: Code rõ ràng, comment đầy đủ
-✅ **Đánh giá đầy đủ**: Precision@K, Recall@K, so sánh Linear vs LSH
-✅ **TFDS integration**: Tải dataset dễ dàng từ TensorFlow Datasets
-✅ **Visualization**: Hiển thị kết quả search bằng matplotlib
+Bài tập lớn CBIR - 2026
 
-## Tác giả
+---
 
-Dự án bài tập lớn CBIR - 2026
+**Repo:** https://github.com/jian131/dpt

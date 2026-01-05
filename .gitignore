@@ -14,16 +14,12 @@ venv/
 ENV/
 env/
 
-# Dataset và artifacts (không push vì file lớn)
+# Dataset và artifacts (file lớn - tải riêng)
 dataset/
 artifacts/
 *.npy
 *.pkl
 *.csv
-
-# TensorFlow
-*.tfrecord
-tensorflow_datasets/
 
 # IDE
 .vscode/
@@ -39,6 +35,3 @@ desktop.ini
 
 # Logs
 *.log
-
-# Jupyter Notebook
-.ipynb_checkpoints/
