@@ -50,25 +50,112 @@ CBIR/
 ├── build.py           (93 lines)  - Build features + index
 ├── search.py         (129 lines)  - Search với distance metrics
 ├── eval.py           (110 lines)  - Evaluation
-├── gui.py            (228 lines)  - GUI demo
-├── requirements.txt               - Dependencies
-├── README.md                      - Hướng dẫn cài đặt
-└── TEAM_GUIDE.md                  - File này
+├── gui.py            (228 lines)  - GUI demo (optional)
+└── requirements.txt               - Dependencies
 ```
+
+**Tổng code chính: 553 dòng** (không kể GUI)
 
 ---
 
-## 👤 THÀNH VIÊN 1: Feature Extraction
+## 👥 PHÂN CÔNG 4 THÀNH VIÊN
 
-### **Nhiệm vụ:**
+### 👤 **THÀNH VIÊN 1: Feature Extraction (HSV Color)**
 
-Implement thuật toán trích xuất đặc trưng từ ảnh:
+**File:** `features.py` - Part 1 (HSV histogram)
+**Dòng code:** ~60 lines
 
-- HSV Color Histogram với spatial grid
-- LBP (Local Binary Pattern) Texture
-- Kết hợp 2 features
+**Nhiệm vụ:**
 
-### **File phụ trách:** `features.py`
+- Implement HSV Color Histogram với spatial grid 3×3
+- Quantization: H=16, S=4, V=4 bins
+- Output: 2304-dim vector (9 cells × 256 bins)
+
+**Báo cáo:**
+
+- Giải thích tại sao dùng HSV thay vì RGB
+- Demo histogram visualization
+- So sánh features giữa 2 classes
+
+---
+
+### 👤 **THÀNH VIÊN 2: Feature Extraction (LBP Texture)**
+
+**File:** `features.py` - Part 2 (LBP)
+**Dòng code:** ~40 lines
+
+**Nhiệm vụ:**
+
+- Implement LBP (Local Binary Pattern) 3×3 basic
+- 8 neighbors encoding → 256 patterns
+- Output: 256-dim histogram
+
+**Báo cáo:**
+
+- Giải thích LBP encoding (binary pattern)
+- Demo texture patterns khác nhau
+- So sánh áo len vs áo lụa
+
+---
+
+### 👤 **THÀNH VIÊN 3: LSH Indexing**
+
+**File:** `lsh.py` (83 lines)
+
+**Nhiệm vụ:**
+
+- Implement LSH với random hyperplanes
+- Hash function: binary signature (12 bits)
+- Multi-table (8 tables) để tăng recall
+- Build & query index
+
+**Báo cáo:**
+
+- Giải thích LSH theory (collision probability)
+- Demo số lượng candidates: 80/500
+- Complexity: O(k) vs O(n)
+
+---
+
+### 👤 **THÀNH VIÊN 4: Search, Distance Metrics & Evaluation**
+
+**Files:** `search.py` (129 lines) + `eval.py` (110 lines) + `build.py` (93 lines)
+
+**Nhiệm vụ:**
+
+- Implement 3 distance metrics: Chi², L1, L2
+- Linear search vs LSH search
+- Build pipeline: dataset → features → index
+- Evaluation: Precision@K, Recall@K, Speedup
+
+**Báo cáo:**
+
+- So sánh 3 metrics (Chi² tốt nhất)
+- Speedup: Linear 28ms vs LSH 1.5ms → 19x
+- Precision/Recall curves
+
+---
+
+## 📊 PHÂN BỔ WORKLOAD
+
+| Thành viên      | Code (lines) | Độ khó   | Tasks                              |
+| --------------- | ------------ | -------- | ---------------------------------- |
+| 1 - HSV         | 60           | ⭐⭐     | HSV quantization + Grid histogram  |
+| 2 - LBP         | 40           | ⭐⭐     | LBP encoding + Histogram           |
+| 3 - LSH         | 83           | ⭐⭐⭐⭐ | Random planes + Hash + Multi-table |
+| 4 - Search/Eval | 332          | ⭐⭐⭐   | 3 Metrics + Search + Eval + Build  |
+
+**Total: 515 lines thuật toán core**
+
+---
+
+## 👤 THÀNH VIÊN 1: HSV Color Histogram
+
+### **Nhiệm vụ chi tiết:**
+
+Implement thuật toán HSV Color Histogram với spatial grid
+
+### **File phụ trách:** `features.py` (lines 8-50)
 
 ---
 
@@ -164,15 +251,67 @@ def compute_grid_hsv_hist(img_bgr, grid, bins_H, bins_S, bins_V):
 → Phân biệt được "áo đỏ viền trắng" vs "áo trắng viền đỏ"
 ```
 
+**Demo cho Thành viên 1:**
+
+**1. Visualize HSV histogram:**
+
+```python
+import matplotlib.pyplot as plt
+
+img_path = "dataset/T-shirt/0.jpg"
+img = cv2.imread(img_path)
+img = cv2.resize(img, (256, 256))
+
+# Compute histogram cho 1 cell
+hsv = cv2.cvtColor(img[:85, :85], cv2.COLOR_BGR2HSV)
+idx = hsv_quantize(hsv, 16, 4, 4)
+hist = np.bincount(idx.ravel(), minlength=256)
+
+# Plot
+plt.bar(range(256), hist)
+plt.title("HSV Histogram - Top-left cell")
+plt.xlabel("Bin")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+**2. So sánh 2 classes:**
+
+```python
+# T-shirt (xám) vs Dress (trắng)
+t_shirt = compute_grid_hsv_hist(cv2.imread("dataset/T-shirt/0.jpg"), (3,3), 16,4,4)
+dress = compute_grid_hsv_hist(cv2.imread("dataset/Dress/0.jpg"), (3,3), 16,4,4)
+
+# Cosine similarity
+sim = np.dot(t_shirt, dress) / (np.linalg.norm(t_shirt) * np.linalg.norm(dress))
+print(f"Similarity: {sim:.3f}")  # Low (~0.3-0.4)
+```
+
+**3. Spatial information:**
+
+```python
+# So sánh global vs spatial
+global_hist = compute_hsv_hist(img, 16, 4, 4)  # 256 dim
+spatial_hist = compute_grid_hsv_hist(img, (3,3), 16,4,4)  # 2304 dim
+
+print(f"Global: {global_hist.shape}")    # (256,)
+print(f"Spatial: {spatial_hist.shape}")  # (2304,)
+# Spatial giữ được thông tin vị trí màu sắc!
+```
+
 ---
 
-#### **1.2. LBP Texture**
+## 👤 THÀNH VIÊN 2: LBP Texture
 
-**Tại sao cần LBP?**
+### **Nhiệm vụ chi tiết:**
 
-- HSV chỉ capture **màu sắc**
-- LBP capture **texture** (vân, họa tiết, chi tiết bề mặt)
-- VD: Áo len (texture thô) vs Áo lụa (texture mịn)
+Implement Local Binary Pattern để capture texture
+
+### **File phụ trách:** `features.py` (lines 51-76)
+
+---
+
+#### **2.1. LBP Theory**
 
 **Code chi tiết:**
 
@@ -245,14 +384,73 @@ Binary: 01111000 → Decimal: 120
   - Áo len: Nhiều codes 11111111, 00000000 (thô ráp)
   - Áo lụa: Nhiều codes 01010101 (mịn màng)
 
----
+**Demo cho Thành viên 2:**
 
-#### **1.3. Kết hợp Features**
+**1. Visualize LBP codes:**
 
 ```python
-def extract_feature(img_path, config, use_color=True, use_lbp=True):
-    """
-    Kết hợp HSV + LBP thành 1 vector
+img = cv2.imread("dataset/Coat/0.jpg", cv2.IMREAD_GRAYSCALE)
+img = cv2.resize(img, (256, 256))
+
+# Compute LBP
+lbp_hist = compute_lbp_hist(img)
+
+# Plot histogram
+plt.bar(range(256), lbp_hist)
+plt.title("LBP Histogram - Coat texture")
+plt.xlabel("LBP Code (0-255)")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+**2. So sánh textures:**
+
+```python
+# Áo len (thô) vs Áo lụa (mịn)
+coat_gray = cv2.imread("dataset/Coat/0.jpg", cv2.IMREAD_GRAYSCALE)
+dress_gray = cv2.imread("dataset/Dress/0.jpg", cv2.IMREAD_GRAYSCALE)
+
+coat_lbp = compute_lbp_hist(coat_gray)
+dress_lbp = compute_lbp_hist(dress_gray)
+
+# Compare
+plt.subplot(1,2,1)
+plt.bar(range(256), coat_lbp)
+plt.title("Coat (rough)")
+
+plt.subplot(1,2,2)
+plt.bar(range(256), dress_lbp)
+plt.title("Dress (smooth)")
+plt.show()
+```
+
+**3. LBP image visualization:**
+
+```python
+# Visualize LBP values
+H, W = img.shape
+lbp_img = np.zeros((H-2, W-2), dtype=np.uint8)
+# ... (compute LBP for each pixel)
+
+plt.subplot(1,2,1)
+plt.imshow(img, cmap='gray')
+plt.title("Original")
+
+plt.subplot(1,2,2)
+plt.imshow(lbp_img, cmap='gray')
+plt.title("LBP codes")
+plt.show()
+```
+
+---
+
+## 👤 THÀNH VIÊN 3: LSH Indexing
+
+### **Nhiệm vụ chi tiết:**
+
+Implement Locality-Sensitive Hashing với random hyperplanes
+
+### **File phụ trách:** `lsh.py` (83 lines)
 
     Output: (2560,) = 2304 (HSV) + 256 (LBP)
     """
@@ -286,7 +484,8 @@ def extract_feature(img_path, config, use_color=True, use_lbp=True):
     vec = vec / (np.linalg.norm(vec) + 1e-12)
 
     return vec.astype(np.float32)
-```
+
+````
 
 **Tại sao normalize?**
 
@@ -315,7 +514,7 @@ plt.subplot(1,2,2)
 plt.bar(range(256), feat[2304:])
 plt.title("LBP Histogram")
 plt.show()
-```
+````
 
 **2. So sánh features:**
 
@@ -630,25 +829,83 @@ candidates = {0, 10, 15, 20, 99, 234, ...}
 
 ---
 
-### **Demo cho Thành viên 2:**
+### **Demo cho Thành viên 3:**
 
-**1. Collision probability:**
+**1. Collision probability test:**
 
 ```python
-# Tạo 2 vectors giống nhau 80%
+# Tạo 2 vectors tương tự 90%
 v1 = np.random.randn(2560)
-v2 = 0.8 * v1 + 0.2 * np.random.randn(2560)
+v2 = 0.9 * v1 + 0.1 * np.random.randn(2560)
 v1 = v1 / np.linalg.norm(v1)
 v2 = v2 / np.linalg.norm(v2)
 
-# Build index
-index = LSHIndex(8, 12, 2560)
+# Build index với v1
+index = LSHIndex(8, 12, 2560, seed=42)
 index.fit(np.array([v1]))
 
-# Query
+# Query với v2
 candidates = index.query(v2)
-print(f"v1 in candidates: {0 in candidates}")  # High probability: True
+print(f"v2 → v1 collision: {0 in candidates}")  # True với high probability
+
+# Test với vector random (không giống)
+v3 = np.random.randn(2560)
+v3 = v3 / np.linalg.norm(v3)
+candidates3 = index.query(v3)
+print(f"v3 → v1 collision: {0 in candidates3}")  # False
 ```
+
+**2. Candidates reduction:**
+
+```python
+# Load features
+features = np.load("artifacts/features.npy")  # (500, 2560)
+
+# Build index
+index = LSHIndex(8, 12, 2560)
+index.fit(features)
+
+# Query nhiều ảnh
+num_candidates = []
+for i in range(50):
+    cands = index.query(features[i])
+    num_candidates.append(len(cands))
+
+print(f"Avg candidates: {np.mean(num_candidates):.0f}/{len(features)}")  # ~80/500
+print(f"Reduction: {len(features) / np.mean(num_candidates):.1f}x")      # ~6.3x
+```
+
+**3. Hash distribution:**
+
+```python
+# Phân bố hash codes trong 1 table
+hash_counts = {}
+for i in range(len(features)):
+    h = index._hash(features[i], index.planes[0])
+    hash_counts[h] = hash_counts.get(h, 0) + 1
+
+# Plot distribution
+import matplotlib.pyplot as plt
+plt.hist(hash_counts.values(), bins=20)
+plt.xlabel("Bucket size")
+plt.ylabel("Frequency")
+plt.title("Hash distribution (Table 0)")
+plt.show()
+```
+
+---
+
+## 👤 THÀNH VIÊN 4: Search, Distance Metrics & Evaluation
+
+### **Nhiệm vụ chi tiết:**
+
+Implement search pipeline, distance metrics, và evaluation metrics
+
+### **Files phụ trách:**
+
+- `search.py` (129 lines) - Distance metrics + Search algorithms
+- `eval.py` (110 lines) - Evaluation metrics
+- `build.py` (93 lines) - Build pipeline
 
 **2. Số lượng candidates:**
 
@@ -1475,52 +1732,54 @@ plt.show()
 1. Load Dataset (build.py)
    dataset/T-shirt/*.jpg → paths, labels
 
-2. Extract Features (features.py - Thành viên 1)
-   Mỗi ảnh → 2560-dim vector
+2. Extract Features (Thành viên 1 + 2)
+   - HSV Color Histogram (Thành viên 1): 2304-dim
+   - LBP Texture (Thành viên 2): 256-dim
+   → Combine = 2560-dim vector
 
-3. Build LSH Index (lsh.py - Thành viên 2)
+3. Build LSH Index (Thành viên 3)
    500 vectors → 8 hash tables
 
-4. Save Artifacts
+4. Save Artifacts (Thành viên 4)
    features.npy, meta.csv, lsh_index.pkl
 ```
 
 ### **Phase 2: SEARCH (Online)**
 
 ```
-1. Query Image Input (GUI - Thành viên 4)
-   User chọn ảnh
+1. Query Image Input
+   Chọn query ảnh từ dataset
 
-2. Extract Features (features.py - Thành viên 1)
-   Query ảnh → 2560-dim vector
+2. Extract Features (Thành viên 1 + 2)
+   - HSV histogram (Thành viên 1)
+   - LBP histogram (Thành viên 2)
+   → Query vector 2560-dim
 
-3. LSH Query (lsh.py - Thành viên 2)
-   Query vector → 80 candidates
+3. LSH Query (Thành viên 3)
+   Hash query → ~80 candidates
 
-4. Compute Distance (search.py - Thành viên 3)
-   Query vs 80 candidates → distances
+4. Compute Distance (Thành viên 4)
+   Chi² distance với candidates
 
-5. Sort & Return Top-K (search.py - Thành viên 3)
+5. Sort & Return Top-K (Thành viên 4)
    Top-10 smallest distances
-
-6. Display Results (GUI - Thành viên 4)
-   Show 10 ảnh với distances
 ```
 
 ### **Phase 3: EVALUATION (Offline)**
 
 ```
-1. Random Sample Queries (eval.py - Thành viên 4)
+1. Random Sample Queries (Thành viên 4)
    50 query images
 
-2. Run Search (search.py - Thành viên 3)
-   Linear + LSH modes
+2. Run Search (Thành viên 4)
+   - Linear search: 500 vectors
+   - LSH search: ~80 candidates
 
-3. Compute Metrics (eval.py - Thành viên 4)
-   Precision@K, Recall@K
+3. Compute Metrics (Thành viên 4)
+   Precision@K, Recall@K, Time
 
-4. Compare Performance (eval.py - Thành viên 4)
-   Speedup, Accuracy
+4. Compare Performance (Thành viên 4)
+   Speedup: Linear vs LSH
 ```
 
 ---
@@ -1569,31 +1828,37 @@ A:
 - [ ] Code đã push lên GitHub
 - [ ] Comment đầy đủ trong code
 - [ ] Hiểu rõ code của mình (giải thích từng dòng)
-- [ ] Test code chạy được
+- [ ] Test code: `python build.py`, `python search.py`, `python eval.py`
 
-### **Thành viên 1:**
+### **Thành viên 1 - HSV Color (~60 lines):**
 
-- [ ] Demo visualize histogram
-- [ ] So sánh features giữa 2 classes
-- [ ] Giải thích quantization
+- [ ] Demo histogram visualization cho 3 classes
+- [ ] So sánh spatial vs global histogram
+- [ ] Giải thích quantization: Tại sao 16×4×4 bins?
+- [ ] Trả lời: HSV tốt hơn RGB như thế nào?
 
-### **Thành viên 2:**
+### **Thành viên 2 - LBP Texture (~40 lines):**
 
-- [ ] Demo collision probability
-- [ ] Chart số lượng candidates
-- [ ] Giải thích hash function
+- [ ] Demo LBP codes visualization
+- [ ] So sánh texture: Coat (rough) vs Dress (smooth)
+- [ ] Giải thích 8-neighbor encoding
+- [ ] Trả lời: LBP capture texture pattern ra sao?
 
-### **Thành viên 3:**
+### **Thành viên 3 - LSH Indexing (83 lines):**
 
-- [ ] So sánh 3 metrics
-- [ ] Speedup chart
-- [ ] Complexity analysis
+- [ ] Demo collision probability test
+- [ ] Chart candidates reduction: 500 → 80
+- [ ] Giải thích random hyperplanes
+- [ ] Trả lời: Tại sao 8 tables? Tại sao 12 planes?
 
-### **Thành viên 4:**
+### **Thành viên 4 - Search/Eval/Build (332 lines):**
 
-- [ ] Precision-Recall curve
-- [ ] Live demo GUI
-- [ ] Kết quả evaluation
+- [ ] So sánh 3 metrics: Chi² vs L1 vs L2
+- [ ] Speedup chart: Linear vs LSH (~19x)
+- [ ] Precision-Recall curve cho K khác nhau
+- [ ] Trả lời: Trade-off giữa accuracy và speed?
+
+**Lưu ý:** File `gui.py` (228 lines) là **optional bonus** cho demo trực quan, **không bắt buộc** trong phân công!
 
 ---
 
